@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_custom_cursor/cursor_manager.dart';
 
 class FlutterCustomCursor extends MouseCursor {
   final String path;
@@ -47,23 +48,10 @@ class _FlutterDesktopCursorSession extends MouseCursorSession {
 
 class FlutterCustomMemoryImageCursor extends MouseCursor {
   final String? key;
-  final Uint8List? pixbuf;
-  final double? hotx;
-  final double? hoty;
-  // can used to scale image, can be null
-  final int? imageWidth;
-  final int? imageHeight;
-  // for windows
 
   static const MethodChannel _channel = MethodChannel('flutter_custom_cursor');
-  const FlutterCustomMemoryImageCursor(
-      {this.pixbuf,
-      this.key,
-      this.hotx,
-      this.hoty,
-      this.imageHeight,
-      this.imageWidth})
-      : assert((key != null && key != "") || pixbuf != null);
+  const FlutterCustomMemoryImageCursor({this.key})
+      : assert((key != null && key != ""));
 
   @override
   MouseCursorSession createSession(int device) =>
@@ -71,7 +59,7 @@ class FlutterCustomMemoryImageCursor extends MouseCursor {
 
   @override
   String get debugDescription =>
-      '${objectRuntimeType(this, 'FlutterCustomMemoryImageCursor')}(${pixbuf?.length})';
+      '${objectRuntimeType(this, 'FlutterCustomMemoryImageCursor')}';
 }
 
 class _FlutterCustomMemoryImageCursorSession extends MouseCursorSession {
@@ -85,47 +73,13 @@ class _FlutterCustomMemoryImageCursorSession extends MouseCursorSession {
 
   @override
   Future<void> activate() async {
-    Uint8List? buffer = cursor.pixbuf;
-    if (cursor.key != null &&
-        cursor.key!.isNotEmpty &&
-        customCursorController.hasCache(cursor.key!)) {
-        // has cache, ignore buffer
-        debugPrint("has cache, ignore buffer");
-        buffer = Platform.isWindows ? Uint8List(0) : null;
-      }
-      if (!await customCursorController.needUpdateCursor(cursor.key)) {
-        // no need to update
-         debugPrint("no need to update");
-        return;
-      }
-      if (cursor.key != null && cursor.key!.isNotEmpty) {
-        customCursorController.addCache(cursor.key!);
-    }
-    if (Platform.isWindows && cursor.key != null && await FlutterCustomCursorController.instance.lastCursorKey() == cursor.key) {
-      debugPrint("no need to update");
-      return;
-    }
-    final param = <String, dynamic>{
-      'device': device,
-      'key': cursor.key ?? "",
-      'buffer': buffer,
-      'length': buffer?.length ?? -1,
-      'x': cursor.hotx ?? 0.0,
-      'y': cursor.hoty ?? 0.0,
-      'scale_x': cursor.imageWidth ?? -1,
-      'scale_y': cursor.imageHeight ?? -1
-    };
     if (Platform.isWindows) {
-      print("set cursor");
-      return await SystemChannels.mouseCursor.invokeMethod<void>(
-        'setSystemCursor',
-        param,
-      );
+      return CursorManager.instance.setSystemCursor(cursor.key.toString());
     } else {
-      return await FlutterCustomMemoryImageCursor._channel.invokeMethod<void>(
-        'activateMemoryImageCursor',
-        param,
-      );
+      // return await FlutterCustomMemoryImageCursor._channel.invokeMethod<void>(
+      //   'activateMemoryImageCursor',
+      //   param,
+      // );
     }
   }
 
@@ -219,10 +173,12 @@ class FlutterCustomCursorController {
 
   Future<List<String>?> getCursorCacheKey() async {
     if (Platform.isWindows) {
-      final keys = await SystemChannels.mouseCursor.invokeMethod<List<Object?>>("getCacheKeyList");
+      final keys = await SystemChannels.mouseCursor
+          .invokeMethod<List<Object?>>("getCacheKeyList");
       return keys?.map((e) => e.toString()).toList(growable: false);
     } else {
-      final keys = await _channel.invokeMethod<List<Object?>>("getCacheKeyList");
+      final keys =
+          await _channel.invokeMethod<List<Object?>>("getCacheKeyList");
       return keys?.map((e) => e.toString()).toList(growable: false);
     }
   }

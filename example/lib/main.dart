@@ -2,40 +2,55 @@ import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Image;
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:flutter_custom_cursor/cursor_manager.dart';
 import 'package:flutter_custom_cursor/flutter_custom_cursor.dart';
 import 'package:flutter_custom_cursor/mouse_cursors.dart';
-import 'dart:ui' as ui;
+import 'package:image/image.dart' as img2;
 
-late Uint8List memoryCursorDataRawRGBA;
+late Uint8List memoryCursorDataRawBGRA;
 late Uint8List memoryCursorDataRawPNG;
-late int width;
-late int height;
+late String cursorName;
 
-String imgPath = "C:\\projects\\rustdesk_flutter_custom_cursor\\example\\assets\\cursors\\circle.png";
-late ui.Image img;
+String imgPath =
+    "C:\\projects\\rustdesk_flutter_custom_cursor\\example\\assets\\cursors\\data.png";
+String imgRawPath =
+    "C:\\projects\\rustdesk_flutter_custom_cursor\\example\\assets\\cursors\\data.raw";
+late img2.Image img;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // read memory Cursor
+  print("reading memory cursor");
   img = await getImage(imgPath);
-  width = img.width;
-  height = img.height;
-  memoryCursorDataRawRGBA = (await img.toByteData(format: ui.ImageByteFormat.rawRgba))!.buffer.asUint8List();
-  memoryCursorDataRawPNG = (await img.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List();
-
+  memoryCursorDataRawBGRA =
+      (img.getBytes(format: img2.Format.bgra))!.buffer.asUint8List();
+  File(imgRawPath).writeAsBytesSync(memoryCursorDataRawBGRA);
+  memoryCursorDataRawPNG = File(imgPath).readAsBytesSync();
+  cursorName = await CursorManager.instance.registerCursor(CursorData()
+    ..name = "test"
+    ..buffer = memoryCursorDataRawBGRA
+    ..height = img.height
+    ..width = img.width
+    ..hotX = 0
+    ..hotY = 0);
+  // test delete
+  print("test delete");
+  await CursorManager.instance.deleteCursor("test");
+  cursorName = await CursorManager.instance.registerCursor(CursorData()
+      ..name = "test"
+      ..buffer = memoryCursorDataRawBGRA
+      ..height = img.height
+      ..width = img.width
+      ..hotX = 0
+      ..hotY = 0);
   runApp(const MyApp());
 }
 
-Future<ui.Image> getImage(String path) async {
-  var completer = Completer<ImageInfo>();
-  var img = new FileImage(File(path));
-  img.resolve(const ImageConfiguration()).addListener(ImageStreamListener((info, _) {
-    completer.complete(info);
-  }));
-  ImageInfo imageInfo = await completer.future;
-  return imageInfo.image;
+Future<img2.Image> getImage(String path) async {
+  img = img2.decodePng(File(path).readAsBytesSync())!;
+  return img;
 }
 
 class MyApp extends StatefulWidget {
@@ -115,53 +130,49 @@ class _MyAppState extends State<MyApp> {
             ),
             MouseRegion(
               cursor: SystemMouseCursors.click,
-              child: Text("Flutter Official  Click Cursor",
-                  style: style),
+              child: Text("Flutter Official  Click Cursor", style: style),
             ),
             MouseRegion(
               cursor: FlutterCustomMemoryImageCursor(
-                key: "key",
-                pixbuf: memoryCursorDataRawRGBA,
-                imageHeight: 32,
-                imageWidth: 32,
-                hotx: 0,
-                hoty: 0
-              ),
+                  key: cursorName),
               child: Row(
                 children: [
-                  Image.memory(memoryCursorDataRawPNG),
-                  Text("Memory Image Here",
-                  style: style),
+                  // Image.memory(memoryCursorDataRawPNG),
+                  Text("Memory Image Here", style: style),
                 ],
               ),
             ),
             Text("OUTPUT: ${msg}"),
-            TextButton(onPressed: () async {
-              msg = "${await FlutterCustomCursorController.instance.getCursorCacheKey()}";
-              setState(()  {
-                
-              }); 
-            }, child: Text("Last Cursor Cache List")),
-            TextButton(onPressed: () async {
-              final keys = await FlutterCustomCursorController.instance.getCursorCacheKey() ?? [];
-              for (final key in keys) {
-                await FlutterCustomCursorController.instance.freeCache(key);
-              }
-              msg = "${await FlutterCustomCursorController.instance.getCursorCacheKey()}";
-              setState(()  {
-                
-              }); 
-            }, child: Text("free all cache")),
-            TextButton(onPressed: () async {
-              msg = "${await FlutterCustomCursorController.instance.lastCursorKey()}";
-              setState(() {
-                
-              }); 
-            }, child: Text("Last Cursor Key"))
+            // TextButton(
+            //     onPressed: () async {
+            //       msg =
+            //           "${await FlutterCustomCursorController.instance.getCursorCacheKey()}";
+            //       setState(() {});
+            //     },
+            //     child: Text("Last Cursor Cache List")),
+            // TextButton(
+            //     onPressed: () async {
+            //       final keys = await FlutterCustomCursorController.instance
+            //               .getCursorCacheKey() ??
+            //           [];
+            //       for (final key in keys) {
+            //         await FlutterCustomCursorController.instance.freeCache(key);
+            //       }
+            //       msg =
+            //           "${await FlutterCustomCursorController.instance.getCursorCacheKey()}";
+            //       setState(() {});
+            //     },
+            //     child: Text("free all cache")),
+            // TextButton(
+            //     onPressed: () async {
+            //       msg =
+            //           "${await FlutterCustomCursorController.instance.lastCursorKey()}";
+            //       setState(() {});
+            //     },
+            //     child: Text("Last Cursor Key"))
           ],
         )),
       ),
-    
-   );
+    );
   }
 }
