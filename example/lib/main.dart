@@ -7,7 +7,6 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_custom_cursor/cursor_manager.dart';
 import 'package:flutter_custom_cursor/flutter_custom_cursor.dart';
-import 'package:flutter_custom_cursor/mouse_cursors.dart';
 import 'package:image/image.dart' as img2;
 
 late Uint8List memoryCursorDataRawBGRA;
@@ -15,22 +14,24 @@ late Uint8List memoryCursorDataRawPNG;
 late String cursorName;
 
 String imgPath =
-    "C:\\projects\\rustdesk_flutter_custom_cursor\\example\\assets\\cursors\\data.png";
+    "/Users/kingtous/projects/rustdesk_flutter_custom_cursor/example/assets/cursors/data.png";
 String imgRawPath =
-    "C:\\projects\\rustdesk_flutter_custom_cursor\\example\\assets\\cursors\\data.raw";
+    "/Users/kingtous/projects/rustdesk_flutter_custom_cursor/example/assets/cursors/data.raw";
 late img2.Image img;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // read memory Cursor
   print("reading memory cursor");
-  img = await getImage(imgPath);
+  final byte = await rootBundle.load("assets/cursors/data.png");
+  memoryCursorDataRawPNG = byte.buffer.asUint8List();
+  img = await getImage(memoryCursorDataRawPNG);
   memoryCursorDataRawBGRA =
-      (img.getBytes(format: img2.Format.bgra))!.buffer.asUint8List();
-  File(imgRawPath).writeAsBytesSync(memoryCursorDataRawBGRA);
-  memoryCursorDataRawPNG = File(imgPath).readAsBytesSync();
+      (img.getBytes(format: img2.Format.bgra)).buffer.asUint8List();
+  // register this cursor
   cursorName = await CursorManager.instance.registerCursor(CursorData()
     ..name = "test"
-    ..buffer = memoryCursorDataRawBGRA
+    ..buffer =
+        Platform.isWindows ? memoryCursorDataRawBGRA : memoryCursorDataRawPNG
     ..height = img.height
     ..width = img.width
     ..hotX = 0
@@ -39,17 +40,18 @@ void main() async {
   print("test delete");
   await CursorManager.instance.deleteCursor("test");
   cursorName = await CursorManager.instance.registerCursor(CursorData()
-      ..name = "test"
-      ..buffer = memoryCursorDataRawBGRA
-      ..height = img.height
-      ..width = img.width
-      ..hotX = 0
-      ..hotY = 0);
+    ..name = "test"
+    ..buffer =
+        Platform.isWindows ? memoryCursorDataRawBGRA : memoryCursorDataRawPNG
+    ..height = img.height
+    ..width = img.width
+    ..hotX = 0
+    ..hotY = 0);
   runApp(const MyApp());
 }
 
-Future<img2.Image> getImage(String path) async {
-  img = img2.decodePng(File(path).readAsBytesSync())!;
+Future<img2.Image> getImage(Uint8List bytes) async {
+  img = img2.decodePng(bytes)!;
   return img;
 }
 
@@ -104,37 +106,7 @@ class _MyAppState extends State<MyApp> {
             child: ListView(
           children: [
             MouseRegion(
-              cursor: FlutterCustomCursors.pencil,
-              child: Text("Pencil Style, normally apply to edit mode",
-                  style: style),
-            ),
-            MouseRegion(
-              cursor: FlutterCustomCursors.erase,
-              child: Text("Erase Style, normally apply to delete mode",
-                  style: style),
-            ),
-            MouseRegion(
-              cursor: FlutterCustomCursors.cutTop,
-              child: Text("CutTop Style, normally apply to delete mode",
-                  style: style),
-            ),
-            MouseRegion(
-              cursor: FlutterCustomCursors.cutLeft,
-              child: Text("CutLeft Style, normally apply to delete mode",
-                  style: style),
-            ),
-            MouseRegion(
-              cursor: FlutterCustomCursors.cutDown,
-              child: Text("CutDown Style, normally apply to delete mode",
-                  style: style),
-            ),
-            MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: Text("Flutter Official  Click Cursor", style: style),
-            ),
-            MouseRegion(
-              cursor: FlutterCustomMemoryImageCursor(
-                  key: cursorName),
+              cursor: FlutterCustomMemoryImageCursor(key: cursorName),
               child: Row(
                 children: [
                   // Image.memory(memoryCursorDataRawPNG),

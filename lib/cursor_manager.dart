@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/services.dart';
 
 class CursorData {
@@ -33,9 +36,9 @@ class CursorData {
 /// The cursor manager
 class CursorManager {
   static const channel = SystemChannels.mouseCursor;
-  static const createCursorKeyWindows = "createCustomCursor/windows";
-  static const setCursorMethodWindows = "setCustomCursor/windows";
-  static const deleteCursorMethodWindows = "deleteCustomCursor/windows";
+  static const createCursorKey = "createCustomCursor";
+  static const setCursorMethod = "setCustomCursor";
+  static const deleteCursorMethod = "deleteCustomCursor";
 
   CursorManager._();
   static CursorManager instance = CursorManager._();
@@ -68,21 +71,35 @@ class CursorManager {
   // static constexpr char kDeleteCustomCursorMethod[] =
   //     "deleteCustomCursor/windows";
   Future<String> registerCursor(CursorData data) async {
-    final cursorName = await channel.invokeMethod<String>(
-        createCursorKeyWindows, data.toJson());
+    final cursorName = await _getMethodChannel()
+        .invokeMethod<String>(_getMethod(createCursorKey), data.toJson());
     assert(cursorName == data.name);
     return cursorName!;
   }
 
   Future<void> deleteCursor(String name) async {
-    await channel.invokeMethod(deleteCursorMethodWindows, {
-      "name": name
-    });
+    await _getMethodChannel()
+        .invokeMethod(_getMethod(deleteCursorMethod), {"name": name});
   }
 
   Future<void> setSystemCursor(String name) async {
-    await channel.invokeMethod(setCursorMethodWindows, {
-      "name": name
-    });
+    await _getMethodChannel()
+        .invokeMethod(_getMethod(setCursorMethod), {"name": name});
+  }
+
+  MethodChannel _getMethodChannel() {
+    if (Platform.isWindows) {
+      return SystemChannels.mouseCursor;
+    } else {
+      return const MethodChannel('flutter_custom_cursor');
+    }
+  }
+
+  String _getMethod(String method) {
+    if (Platform.isWindows) {
+      return "$method/windows";
+    } else {
+      return method;
+    }
   }
 }
